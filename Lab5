@@ -1,0 +1,123 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def main():
+    # --- 2.1 Generowanie sygnału wejściowego ---
+    
+    # 1. Konfiguracja parametrów
+    [span_0](start_span)fs = 1000.0             # Częstotliwość próbkowania (np. 1000 Hz)[span_0](end_span)
+    duration = 1.0          # Czas trwania sygnału w sekundach
+    N = int(fs * duration)  # Liczba próbek
+    [span_1](start_span)t = np.linspace(0, duration, N, endpoint=False) # Wektor czasu[span_1](end_span)
+
+    # 2. Sygnał czysty: suma kilku sinusoid (np. 50Hz, 120Hz, 300Hz)
+    # [span_2](start_span)[span_3](start_span)Odpowiada to pikom widocznym na przykładowym wykresie[span_2](end_span)[span_3](end_span)
+    clean_signal = (1.0 * np.sin(2 * np.pi * 50 * t) + 
+                    0.8 * np.sin(2 * np.pi * 120 * t) + 
+                    0.5 * np.sin(2 * np.pi * 300 * t))
+
+    # 3. Generowanie szumu losowego o rozkładzie normalnym
+    [span_4](start_span)noise = np.random.normal(0, 0.8, N) # średnia 0, odchylenie 0.8[span_4](end_span)
+
+    # 4. Dodanie szumu do sygnału czystego
+    [span_5](start_span)noisy_signal = clean_signal + noise[span_5](end_span)
+
+    # --- 2.2 Analiza widmowa sygnału zaszumionego ---
+
+    # 1. Obliczenie FFT
+    [span_6](start_span)fft_spectrum = np.fft.fft(noisy_signal)[span_6](end_span)
+
+    # 2. Wyznaczenie amplitudy widma (moduł / długość)
+    [span_7](start_span)amplitude = np.abs(fft_spectrum) / N[span_7](end_span)
+
+    # 3. Wektor częstotliwości
+    [span_8](start_span)freqs = np.fft.fftfreq(N, 1/fs)[span_8](end_span)
+
+    # --- 2.3 Filtracja widma poprzez progowanie ---
+
+    # 1. Ustalenie progu (np. 20% maksymalnej amplitudy)
+    max_amp = np.max(amplitude)
+    threshold_percent = 0.25 # 25%
+    [span_9](start_span)threshold_value = threshold_percent * max_amp[span_9](end_span)
+
+    # 2. Kopia widma
+    [span_10](start_span)fft_filtered = fft_spectrum.copy()[span_10](end_span)
+
+    # 3. Zerowanie składowych poniżej progu
+    # Uwaga: zerujemy w domenie zespolonej na podstawie amplitudy
+    indices_to_remove = amplitude < threshold_value
+    [span_11](start_span)fft_filtered[indices_to_remove] = 0[span_11](end_span)
+
+    # Obliczenie nowej amplitudy do wykresu
+    amplitude_filtered = np.abs(fft_filtered) / N
+
+    # --- 2.4 Rekonstrukcja sygnału ---
+
+    # 1. Odwrotna transformata Fouriera i 2. Część rzeczywista
+    [span_12](start_span)filtered_signal = np.real(np.fft.ifft(fft_filtered))[span_12](end_span)
+
+    # --- 2.5 Wizualizacja wyników (Okno 1) ---
+    
+    plt.figure(figsize=(12, 10))
+    
+    # Wykres 1: Sygnał w dziedzinie czasu
+    plt.subplot(3, 1, 1)
+    # [span_13](start_span)Ograniczamy widok do 0.05s aby przypominał wykres z instrukcji[span_13](end_span)
+    limit_idx = int(0.05 * fs) 
+    plt.plot(t[:limit_idx], noisy_signal[:limit_idx], label='Sygnał z szumem', color='orange', alpha=0.7)
+    plt.plot(t[:limit_idx], filtered_signal[:limit_idx], label='Po filtracji (progowanie)', color='green')
+    plt.title('Sygnał w dziedzinie czasu')
+    plt.xlabel('Czas [s]')
+    plt.ylabel('Amplituda')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    # Wykres 2: Widmo przed filtracją (tylko dodatnia połowa)
+    half_N = N // 2
+    plt.subplot(3, 1, 2)
+    plt.plot(freqs[:half_N], amplitude[:half_N], color='red', label='Przed filtracją')
+    plt.title('Widmo sygnału przed filtracją')
+    plt.xlabel('Częstotliwość [Hz]')
+    plt.ylabel('Amplituda')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    # Wykres 3: Widmo po filtracji
+    plt.subplot(3, 1, 3)
+    plt.plot(freqs[:half_N], amplitude_filtered[:half_N], color='darkblue', label='Po filtracji')
+    plt.title(f'Widmo sygnału po filtracji (próg {threshold_percent*100}%)')
+    plt.xlabel('Częstotliwość [Hz]')
+    plt.ylabel('Amplituda')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    
+    # --- 2.5 Wizualizacja wyników - Spektrogramy (Okno 2) ---
+    
+    
+    plt.figure(figsize=(12, 8))
+
+    # Spektrogram przed filtracją
+    plt.subplot(2, 1, 1)
+    plt.specgram(noisy_signal, NFFT=256, Fs=fs, noverlap=128, cmap='viridis')
+    plt.title('Sygnał przed filtracją — spektrogram')
+    plt.ylabel('Częstotliwość [Hz]')
+    plt.xlabel('Czas [s]')
+    cbar = plt.colorbar()
+    cbar.set_label('PSD [dB/Hz]')
+
+    # Spektrogram po filtracji
+    plt.subplot(2, 1, 2)
+    plt.specgram(filtered_signal, NFFT=256, Fs=fs, noverlap=128, cmap='viridis')
+    plt.title('Sygnał po filtracji — spektrogram')
+    plt.ylabel('Częstotliwość [Hz]')
+    plt.xlabel('Czas [s]')
+    cbar = plt.colorbar()
+    cbar.set_label('PSD [dB/Hz]')
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    main()
