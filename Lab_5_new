@@ -1,0 +1,119 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Usunąłem importy scipy.signal (butter, lfilter), 
+# ponieważ w Lab 5 nie używamy klasycznych filtrów, lecz operacji na FFT.
+
+def calculate_fft_amplitude(signal, fs):
+    """
+    Oblicza FFT i zwraca wektory częstotliwości oraz amplitudy (znormalizowanej).
+    Zwraca również pełne zespolone widmo potrzebne do późniejszej rekonstrukcji.
+    """
+    N = len(signal)
+    [span_4](start_span)fft_complex = np.fft.fft(signal) # Pełne widmo zespolone[span_4](end_span)
+    
+    # Wektor częstotliwości
+    [span_5](start_span)freqs = np.fft.fftfreq(N, 1 / fs)[span_5](end_span)
+    
+    # Amplituda (moduł / N)
+    [span_6](start_span)amplitudes = np.abs(fft_complex) / N[span_6](end_span)
+    
+    return freqs, amplitudes, fft_complex
+
+# --- Konfiguracja i Generowanie Sygnału (Zadanie 2.1) ---
+fs = 1000       # Częstotliwość próbkowania
+T = 1.0         # Czas trwania
+N = int(T * fs)
+t = np.linspace(0, T, N, endpoint=False)
+
+# Składowe sinusoidalne (Sygnał czysty)
+f1, f2, f3 = 50.0, 120.0, 300.0 # Zmieniłem częstotliwości na wyższe, żeby lepiej wyglądały na spektrogramie
+sig_pure = (1.0 * np.sin(2 * np.pi * f1 * t) + 
+            0.8 * np.sin(2 * np.pi * f2 * t) + 
+            0.5 * np.sin(2 * np.pi * f3 * t))
+
+# Dodanie szumu losowego (Zadanie 2.1 pkt 3-4)
+[span_7](start_span)noise = np.random.normal(0, 0.8, N)[span_7](end_span)
+sig_noisy = sig_pure + noise
+
+# --- Analiza i Filtracja (Zadanie 2.2 - 2.3) ---
+
+# 1. Obliczenie widma sygnału zaszumionego
+freqs, amps, fft_complex = calculate_fft_amplitude(sig_noisy, fs)
+
+# 2. Filtracja poprzez progowanie (Thresholding)
+[span_8](start_span)threshold_pct = 0.25 # Próg 25% maksymalnej amplitudy[span_8](end_span)
+max_val = np.max(amps)
+threshold_val = threshold_pct * max_val
+
+# Kopia widma do modyfikacji
+[span_9](start_span)fft_filtered = fft_complex.copy()[span_9](end_span)
+
+# Zerowanie składowych poniżej progu
+indices_to_zero = amps < threshold_val
+fft_filtered[indices_to_zero] = 0 
+
+# Obliczenie amplitudy po filtracji (do wykresu)
+amps_filtered = np.abs(fft_filtered) / N
+
+# --- Rekonstrukcja Sygnału (Zadanie 2.4) ---
+# Odwrotna FFT i pobranie części rzeczywistej
+[span_10](start_span)sig_restored = np.real(np.fft.ifft(fft_filtered))[span_10](end_span)
+
+# --- Wizualizacja (Zadanie 2.5 i 3) ---
+
+# [span_11](start_span)OKNO 1: Sygnały i Widma[span_11](end_span)
+plt.figure(figsize=(12, 10))
+
+# Wykres 1: Sygnał w dziedzinie czasu
+plt.subplot(3, 1, 1)
+limit = int(0.05 * fs) # Zoom na pierwsze 0.05s dla czytelności
+plt.plot(t[:limit], sig_noisy[:limit], label='Sygnał z szumem', color='orange', alpha=0.7)
+plt.plot(t[:limit], sig_restored[:limit], label='Po filtracji (progowanie)', color='green')
+plt.title('Sygnał w dziedzinie czasu')
+plt.xlabel('Czas [s]')
+plt.ylabel('Amplituda')
+plt.legend()
+plt.grid(True, alpha=0.3)
+
+# Wykres 2: Widmo przed filtracją (tylko dodatnia połówka dla czytelności)
+half_n = N // 2
+plt.subplot(3, 1, 2)
+plt.plot(freqs[:half_n], amps[:half_n], color='red')
+plt.title('Widmo sygnału przed filtracją')
+plt.ylabel('Amplituda')
+plt.grid(True, alpha=0.3)
+
+# Wykres 3: Widmo po filtracji
+plt.subplot(3, 1, 3)
+plt.plot(freqs[:half_n], amps_filtered[:half_n], color='darkblue')
+plt.title(f'Widmo sygnału po filtracji (Próg: {threshold_pct*100}%)')
+plt.xlabel('Częstotliwość [Hz]')
+plt.ylabel('Amplituda')
+plt.grid(True, alpha=0.3)
+
+plt.tight_layout()
+
+# [span_12](start_span)OKNO 2: Spektrogramy[span_12](end_span)
+plt.figure(figsize=(12, 8))
+
+# Spektrogram przed filtracją
+plt.subplot(2, 1, 1)
+plt.specgram(sig_noisy, NFFT=256, Fs=fs, noverlap=128, cmap='viridis')
+plt.title('Sygnał przed filtracją — spektrogram')
+plt.ylabel('Częstotliwość [Hz]')
+plt.xlabel('Czas [s]')
+cbar = plt.colorbar()
+cbar.set_label('PSD [dB/Hz]')
+
+# Spektrogram po filtracji
+plt.subplot(2, 1, 2)
+plt.specgram(sig_restored, NFFT=256, Fs=fs, noverlap=128, cmap='viridis')
+plt.title('Sygnał po filtracji — spektrogram')
+plt.ylabel('Częstotliwość [Hz]')
+plt.xlabel('Czas [s]')
+cbar = plt.colorbar()
+cbar.set_label('PSD [dB/Hz]')
+
+plt.tight_layout()
+plt.show()
